@@ -1,0 +1,960 @@
+﻿
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Memory Match Game</title>
+    <style>
+        /* ── Reset & Base ── */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #e8edf5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ── App Card ── */
+        #app {
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 4px 24px rgba(0,0,0,.12);
+            width: min(480px, 100vw);
+            min-height: 100vh;
+            padding: 20px 16px 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* ── Header ── */
+        .pack-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .pack-cover {
+            width: 72px;
+            height: 72px;
+            border-radius: 14px;
+            object-fit: cover;
+            background: #dde4f0;
+            flex-shrink: 0;
+        }
+
+        .pack-meta {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .pack-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pack-author {
+            font-size: .8rem;
+            color: #666;
+        }
+
+        .pack-date {
+            font-size: .75rem;
+            color: #999;
+        }
+
+        /* ── Toolbar ── */
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .moves-label {
+            font-size: .95rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .btn {
+            border: none;
+            cursor: pointer;
+            border-radius: 20px;
+            padding: 7px 18px;
+            font-size: .85rem;
+            font-weight: 600;
+            transition: opacity .15s, transform .1s;
+        }
+
+            .btn:active {
+                transform: scale(.96);
+            }
+
+        .btn-primary {
+            background: #5b6df0;
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1.5px solid #bbb;
+            color: #333;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid #5b6df0;
+            color: #5b6df0;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: #fff;
+        }
+
+        .btn:hover {
+            opacity: .88;
+        }
+
+        /* ── Game Grid ── */
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            flex: 1;
+        }
+
+        /* ── Card ── */
+        .card {
+            aspect-ratio: 1;
+            perspective: 600px;
+            cursor: pointer;
+        }
+
+        .card-inner {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform .4s ease;
+            border-radius: 14px;
+        }
+
+        .card.flipped .card-inner,
+        .card.matched .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            inset: 0;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-back {
+            background: #5b6df0;
+            color: #fff;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .card-front {
+            transform: rotateY(180deg);
+            background: #eef2ff;
+            border: 2.5px solid #5b6df0;
+            padding: 6px;
+        }
+
+        .card.matched .card-front {
+            border-color: #5b6df0;
+            background: #dde4ff;
+        }
+
+        .card-front img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 10px;
+        }
+
+        /* ── Win Screen ── */
+        #win-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+            #win-screen.visible {
+                display: flex;
+            }
+
+        .win-emoji {
+            font-size: 3.5rem;
+        }
+
+        .win-title {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #222;
+        }
+
+        .win-sub {
+            font-size: 1rem;
+            color: #555;
+        }
+
+        .win-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .win-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            width: 100%;
+            margin-top: 12px;
+        }
+
+        .win-tile {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            border: 2.5px solid #5b6df0;
+            background: #eef2ff;
+            overflow: hidden;
+        }
+
+            .win-tile img {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+            }
+
+        /* ── Picker Modal ── */
+        #picker-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.45);
+            z-index: 100;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+            #picker-overlay.visible {
+                display: flex;
+            }
+
+        #picker-modal {
+            background: #fff;
+            border-radius: 24px 24px 0 0;
+            width: min(480px, 100vw);
+            max-height: 92vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 16px 0;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .picker-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .picker-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+
+        .picker-info {
+            font-size: .82rem;
+            color: #666;
+        }
+
+        .picker-close {
+            background: none;
+            border: none;
+            font-size: 1.4rem;
+            cursor: pointer;
+            color: #666;
+            line-height: 1;
+        }
+
+        /* Source selector tabs */
+        .src-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid #e0e4f0;
+            margin-bottom: 2px;
+        }
+
+        .src-tab {
+            flex: 1;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px 4px;
+            font-size: .82rem;
+            font-weight: 600;
+            color: #888;
+            border-bottom: 2.5px solid transparent;
+            margin-bottom: -2px;
+            transition: color .15s, border-color .15s;
+        }
+
+            .src-tab.active {
+                color: #5b6df0;
+                border-bottom-color: #5b6df0;
+            }
+
+        .src-panel {
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+            .src-panel.active {
+                display: flex;
+            }
+
+        /* URL selector */
+        .url-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+            .url-row select {
+                flex: 1;
+                padding: 7px 10px;
+                border-radius: 10px;
+                border: 1.5px solid #ccc;
+                font-size: .82rem;
+                background: #f7f8fc;
+            }
+
+        /* File upload drop zone */
+        .drop-zone {
+            border: 2px dashed #b0bae8;
+            border-radius: 12px;
+            padding: 18px 12px;
+            text-align: center;
+            cursor: pointer;
+            background: #f7f8fc;
+            transition: border-color .15s, background .15s;
+            position: relative;
+        }
+
+            .drop-zone:hover, .drop-zone.drag-over {
+                border-color: #5b6df0;
+                background: #eef1ff;
+            }
+
+            .drop-zone input[type=file] {
+                position: absolute;
+                inset: 0;
+                opacity: 0;
+                cursor: pointer;
+            }
+
+            .drop-zone .dz-icon {
+                font-size: 1.8rem;
+                display: block;
+                margin-bottom: 4px;
+            }
+
+            .drop-zone .dz-label {
+                font-size: .82rem;
+                color: #555;
+                font-weight: 500;
+            }
+
+            .drop-zone .dz-hint {
+                font-size: .75rem;
+                color: #999;
+                margin-top: 2px;
+            }
+
+        /* Thumbnail grid */
+        #thumb-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            overflow-y: auto;
+            flex: 1;
+            padding-bottom: 8px;
+        }
+
+        .thumb-item {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            border: 2.5px solid transparent;
+            background: #f0f3fa;
+            overflow: hidden;
+            cursor: pointer;
+            position: relative;
+            transition: border-color .15s, transform .1s;
+        }
+
+            .thumb-item img {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+            }
+
+            .thumb-item.selected {
+                border-color: #5b6df0;
+                background: #dde4ff;
+            }
+
+                .thumb-item.selected::after {
+                    content: '✓';
+                    position: absolute;
+                    top: 3px;
+                    right: 5px;
+                    font-size: .9rem;
+                    font-weight: 800;
+                    color: #5b6df0;
+                }
+
+            .thumb-item.disabled-thumb {
+                opacity: .4;
+                cursor: not-allowed;
+            }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 0 4px;
+            flex-wrap: wrap;
+        }
+
+        .pg-btn {
+            background: none;
+            border: 1.5px solid #ccc;
+            border-radius: 8px;
+            padding: 4px 10px;
+            font-size: .82rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: #444;
+            transition: background .12s, border-color .12s;
+        }
+
+            .pg-btn.active {
+                background: #5b6df0;
+                border-color: #5b6df0;
+                color: #fff;
+            }
+
+            .pg-btn:disabled {
+                opacity: .4;
+                cursor: not-allowed;
+            }
+
+        .pg-info {
+            font-size: .8rem;
+            color: #888;
+        }
+
+        /* Picker footer */
+        .picker-footer {
+            padding: 12px 0 max(env(safe-area-inset-bottom), 16px);
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            border-top: 1px solid #eee;
+        }
+
+        /* Loading / error */
+        #picker-loading {
+            text-align: center;
+            padding: 40px 0;
+            color: #888;
+            font-size: .95rem;
+        }
+
+        /* Empty state */
+        #empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            text-align: center;
+            color: #888;
+            padding: 20px;
+        }
+
+            #empty-state .big-icon {
+                font-size: 3rem;
+            }
+
+        /* ── Responsive tweaks ── */
+        @media (max-width: 360px) {
+            #grid {
+                gap: 7px;
+            }
+
+            .card-back {
+                font-size: 1.5rem;
+            }
+        }
+
+        @media (min-width: 768px) {
+            body {
+                padding: 24px;
+            }
+
+            #app {
+                min-height: unset;
+                border-radius: 24px;
+            }
+
+            #picker-modal {
+                border-radius: 20px;
+                max-height: 80vh;
+            }
+
+            #picker-overlay {
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+
+        <!-- Pack Header -->
+        <div class="pack-header">
+            <img id="pack-cover" class="pack-cover" src="" alt="Pack cover" />
+            <div class="pack-meta">
+                <div class="pack-title" id="pack-title">Memory Match</div>
+                <div class="pack-author" id="pack-author"></div>
+                <div class="pack-date" id="pack-date"></div>
+            </div>
+            <button class="btn btn-primary" id="btn-pick" onclick="openPicker()">🖼 Choose Images</button>
+        </div>
+
+        <!-- Toolbar (hidden until game starts) -->
+        <div class="toolbar" id="toolbar" style="display:none">
+            <span class="moves-label">Moves: <span id="move-count">0</span></span>
+            <button class="btn btn-secondary" onclick="restartGame()">Restart</button>
+        </div>
+
+        <!-- Empty state -->
+        <div id="empty-state">
+            <div class="big-icon">🃏</div>
+            <p>Pick 8 images to start playing!</p>
+            <button class="btn btn-primary" onclick="openPicker()">Choose Images</button>
+        </div>
+
+        <!-- Game grid -->
+        <div id="grid" style="display:none"></div>
+
+        <!-- Win screen -->
+        <div id="win-screen">
+            <div class="win-emoji">🎉</div>
+            <div class="win-title">You won!</div>
+            <div class="win-sub" id="win-sub">Completed in 0 moves</div>
+            <div class="win-buttons">
+                <button class="btn btn-primary" onclick="restartGame()">&#x21bb; Play again</button>
+                <button class="btn btn-outline" onclick="openPicker()">New images</button>
+            </div>
+            <div class="win-grid" id="win-grid"></div>
+        </div>
+
+    </div>
+
+    <!-- Picker Modal -->
+    <div id="picker-overlay" onclick="overlayClick(event)">
+        <div id="picker-modal">
+            <div class="picker-header">
+                <div>
+                    <div class="picker-title">Choose 8 Images</div>
+                    <div class="picker-info" id="picker-info">0 / 8 selected</div>
+                </div>
+                <button class="picker-close" onclick="closePicker()">✕</button>
+            </div>
+
+            <!-- Pack selector -->
+            <div style="display:flex;gap:8px;align-items:center">
+                <select id="pack-select" onchange="loadPack(this.value)" style="flex:1;padding:8px 10px;border-radius:10px;border:1.5px solid #ccc;font-size:.85rem;background:#f7f8fc"></select>
+                <button class="btn btn-outline" onclick="clearSelection()">Clear</button>
+            </div>
+
+            <!-- Loading indicator -->
+            <div id="picker-loading" style="display:none">Loading stickers…</div>
+
+            <!-- Thumbnail grid -->
+            <div id="thumb-grid"></div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination"></div>
+
+            <!-- Footer -->
+            <div class="picker-footer">
+                <button class="btn btn-secondary" onclick="closePicker()">Cancel</button>
+                <button class="btn btn-primary" id="btn-ok" onclick="startGame()" disabled>OK — Start Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════
+        //  CONFIGURATION
+        //  Add a new pack by appending to this array.
+        //  'file' must be in the same folder as this HTML.
+        // ═══════════════════════════════════════════════════
+        const PACKS = [
+            { title: 'Cute Action', label: 'Spoiled Rabbit - Cute Action', file: 'Spoiled Rabbit - Cute Action.json' },
+            { title: 'Feelings', label: 'Spoiled Rabbit - Feelings', file: 'Spoiled Rabbit - Feelings.json' },
+            { title: 'Hug', label: 'Spoiled Rabbit - Hug', file: 'Spoiled Rabbit - Hug.json' },
+            { title: 'Spoiled Rabbit 2', label: 'Spoiled Rabbit 2', file: 'Spoiled Rabbit 2.json' },
+            { title: 'Spoiled Rabbit 24', label: 'Spoiled Rabbit 24', file: 'Spoiled Rabbit 24.json' },
+        ];
+
+        const PAGE_SIZE = 12; // thumbnails per page in picker
+
+        // ═══════════════════════════════════════════════════
+        //  State
+        // ═══════════════════════════════════════════════════
+        let allStickers = [];   // [{url, emoji}] from current source
+        let selectedUrls = new Set(); // globally selected across pages
+        let currentPage = 1;
+        let totalPages = 1;
+
+        let gameImages = [];   // 8 chosen image urls
+        let cards = [];   // DOM elements
+        let flipped = [];   // currently face-up (unmatched) cards
+        let matched = 0;
+        let moves = 0;
+        let locked = false;
+
+        // ═══════════════════════════════════════════════════
+        //  Boot
+        // ═══════════════════════════════════════════════════
+        (function init() {
+            const sel = document.getElementById('pack-select');
+            PACKS.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.file;
+                opt.textContent = p.title;
+                sel.appendChild(opt);
+            });
+            if (PACKS.length) loadPack(PACKS[0].file);
+        })();
+
+        function loadPack(filename) {
+            if (!filename) return;
+            const packConfig = PACKS.find(p => p.file === filename);
+            allStickers = [];
+            selectedUrls.clear();
+            updatePickerInfo();
+            document.getElementById('thumb-grid').innerHTML = '';
+            document.getElementById('pagination').innerHTML = '';
+            document.getElementById('picker-loading').style.display = 'block';
+            document.getElementById('btn-ok').disabled = true;
+
+            fetch(filename)
+                .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(json => applyPackJson(json, packConfig))
+                .catch(err => showPickerError(err.message +
+                    '<br><small>Make sure the JSON file is in the same folder as this HTML and the page is served via HTTP (e.g. VS Code Live Server).</small>'))
+                .finally(() => { document.getElementById('picker-loading').style.display = 'none'; });
+        }
+
+        function applyPackJson(json, packConfig) {
+            const pack = json && json.pageProps && json.pageProps.pack;
+            if (!pack) { showPickerError('Unexpected JSON — expected pageProps.pack'); return; }
+            document.getElementById('pack-title').textContent  = (packConfig && packConfig.title) || pack.title || 'Memory Match';
+            document.getElementById('pack-author').textContent = pack.author || '';
+            if (pack.cover && pack.cover.url) document.getElementById('pack-cover').src = pack.cover.url;
+            allStickers = (pack.stickers || []).filter(s => s.url);
+            totalPages  = Math.ceil(allStickers.length / PAGE_SIZE);
+            currentPage = 1;
+            renderThumbPage();
+        }
+
+        function showPickerError(msg) {
+            document.getElementById('thumb-grid').innerHTML =
+                '<p style="color:#c0392b;grid-column:1/-1;padding:16px 0;font-size:.85rem">' + msg + '</p>';
+        }
+
+        // ═══════════════════════════════════════════════════
+        //  Tab switching
+        // ═══════════════════════════════════════════════════
+        // (removed: switchTab, unused now)
+
+        // ═══════════════════════════════════════════════════
+        //  Drop-zone helpers
+        // ═══════════════════════════════════════════════════
+        // (removed: drop-zone helpers, unused now)
+
+        // ═══════════════════════════════════════════════════
+        //  CORS proxy list — used only for URL tab
+        // ═══════════════════════════════════════════════════
+        // (removed: URL proxy loading, unused now)
+
+        // ═══════════════════════════════════════════════════
+        //  Shared pack applier
+        // ═══════════════════════════════════════════════════
+        // (removed: duplicate applyPackJson/setPickerLoading/showPickerError — defined earlier near loadPack)
+
+        // ═══════════════════════════════════════════════════
+        //  Picker UI
+        // ═══════════════════════════════════════════════════
+        function openPicker() {
+            document.getElementById('picker-overlay').classList.add('visible');
+            renderThumbPage();
+        }
+        function closePicker() {
+            document.getElementById('picker-overlay').classList.remove('visible');
+        }
+        function overlayClick(e) {
+            if (e.target === document.getElementById('picker-overlay')) closePicker();
+        }
+        function clearSelection() {
+            selectedUrls.clear();
+            updatePickerInfo();
+            renderThumbPage();
+        }
+
+        function renderThumbPage() {
+            const grid = document.getElementById('thumb-grid');
+            grid.innerHTML = '';
+
+            if (!allStickers.length) return;
+
+            const start = (currentPage - 1) * PAGE_SIZE;
+            const page = allStickers.slice(start, start + PAGE_SIZE);
+
+            page.forEach(sticker => {
+                const div = document.createElement('div');
+                const isSelected = selectedUrls.has(sticker.url);
+                const atMax = selectedUrls.size >= 8;
+                div.className = 'thumb-item'
+                    + (isSelected ? ' selected' : '')
+                    + (!isSelected && atMax ? ' disabled-thumb' : '');
+
+                const img = document.createElement('img');
+                img.src = sticker.url;
+                img.alt = sticker.emoji || '';
+                img.loading = 'lazy';
+                div.appendChild(img);
+
+                div.onclick = () => toggleThumb(sticker.url, div);
+                grid.appendChild(div);
+            });
+
+            renderPagination();
+            updatePickerInfo();
+        }
+
+        function toggleThumb(url, div) {
+            if (selectedUrls.has(url)) {
+                selectedUrls.delete(url);
+                div.classList.remove('selected');
+            } else {
+                if (selectedUrls.size >= 8) return;
+                selectedUrls.add(url);
+                div.classList.add('selected');
+            }
+            // Refresh disabled state of non-selected items
+            renderThumbPage();
+            updatePickerInfo();
+        }
+
+        function updatePickerInfo() {
+            const n = selectedUrls.size;
+            document.getElementById('picker-info').textContent = `${n} / 8 selected`;
+            document.getElementById('btn-ok').disabled = (n !== 8);
+        }
+
+        function renderPagination() {
+            const pg = document.getElementById('pagination');
+            pg.innerHTML = '';
+            if (totalPages <= 1) return;
+
+            const mkBtn = (label, page, disabled, active) => {
+                const b = document.createElement('button');
+                b.className = 'pg-btn' + (active ? ' active' : '');
+                b.textContent = label;
+                b.disabled = disabled;
+                b.onclick = () => { currentPage = page; renderThumbPage(); };
+                return b;
+            };
+
+            pg.appendChild(mkBtn('‹', currentPage - 1, currentPage === 1, false));
+
+            // Show a sliding window of page numbers
+            const window = 5;
+            let lo = Math.max(1, currentPage - Math.floor(window / 2));
+            let hi = Math.min(totalPages, lo + window - 1);
+            if (hi - lo < window - 1) lo = Math.max(1, hi - window + 1);
+
+            if (lo > 1) {
+                pg.appendChild(mkBtn('1', 1, false, false));
+                if (lo > 2) pg.appendChild(Object.assign(document.createElement('span'), { className: 'pg-info', textContent: '…' }));
+            }
+            for (let p = lo; p <= hi; p++) pg.appendChild(mkBtn(p, p, false, p === currentPage));
+            if (hi < totalPages) {
+                if (hi < totalPages - 1) pg.appendChild(Object.assign(document.createElement('span'), { className: 'pg-info', textContent: '…' }));
+                pg.appendChild(mkBtn(totalPages, totalPages, false, false));
+            }
+
+            pg.appendChild(mkBtn('›', currentPage + 1, currentPage === totalPages, false));
+        }
+
+        // ═══════════════════════════════════════════════════
+        //  Game
+        // ═══════════════════════════════════════════════════
+        function startGame() {
+            if (selectedUrls.size !== 8) return;
+            closePicker();
+
+            gameImages = Array.from(selectedUrls);
+            moves = 0;
+            matched = 0;
+            locked = false;
+            flipped = [];
+
+            document.getElementById('empty-state').style.display = 'none';
+            document.getElementById('win-screen').classList.remove('visible');
+            document.getElementById('toolbar').style.display = 'flex';
+            document.getElementById('grid').style.display = 'grid';
+            document.getElementById('move-count').textContent = '0';
+
+            buildGrid();
+        }
+
+        function restartGame() {
+            if (!gameImages.length) { openPicker(); return; }
+            startGame(); // reuse same images
+        }
+
+        function buildGrid() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            cards = [];
+            flipped = [];
+
+            // 8 pairs = 16 cards
+            const deck = shuffle([...gameImages, ...gameImages]);
+
+            deck.forEach((url, i) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.url = url;
+                card.dataset.idx = i;
+                card.innerHTML = `
+          <div class="card-inner">
+            <div class="card-face card-back">?</div>
+            <div class="card-face card-front"><img src="${url}" alt="" /></div>
+          </div>`;
+                card.onclick = () => flipCard(card);
+                grid.appendChild(card);
+                cards.push(card);
+            });
+        }
+
+        function flipCard(card) {
+            if (locked) return;
+            if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+            card.classList.add('flipped');
+            flipped.push(card);
+
+            if (flipped.length === 2) {
+                locked = true;
+                moves++;
+                document.getElementById('move-count').textContent = moves;
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            const [a, b] = flipped;
+            if (a.dataset.url === b.dataset.url) {
+                a.classList.add('matched');
+                b.classList.add('matched');
+                a.classList.remove('flipped');
+                b.classList.remove('flipped');
+                matched++;
+                flipped = [];
+                locked = false;
+                if (matched === 8) showWin();
+            } else {
+                setTimeout(() => {
+                    a.classList.remove('flipped');
+                    b.classList.remove('flipped');
+                    flipped = [];
+                    locked = false;
+                }, 900);
+            }
+        }
+
+        function showWin() {
+            document.getElementById('grid').style.display = 'none';
+            document.getElementById('toolbar').style.display = 'none';
+
+            document.getElementById('win-sub').textContent = `Completed in ${moves} move${moves !== 1 ? 's' : ''}`;
+
+            const winGrid = document.getElementById('win-grid');
+            winGrid.innerHTML = '';
+            // Show all 16 matched cards (4×4)
+            const deck = [...gameImages, ...gameImages];
+            deck.forEach(url => {
+                const tile = document.createElement('div');
+                tile.className = 'win-tile';
+                tile.innerHTML = `<img src="${url}" alt="" />`;
+                winGrid.appendChild(tile);
+            });
+
+            document.getElementById('win-screen').classList.add('visible');
+        }
+
+        // ═══════════════════════════════════════════════════
+        //  Utility
+        // ═══════════════════════════════════════════════════
+        function shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+    </script>
+</body>
+</html>
